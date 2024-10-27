@@ -51,12 +51,14 @@ class IndexingManager:
 
     def mark_image_processed(self, image_path: str) -> None:
         with self._lock:
-            self._processed_images.add(image_path)
+            resolved_path = str(Path(image_path).resolve())
+            self._processed_images.add(resolved_path)
             self._last_index_time = time.time()
 
     def is_image_processed(self, image_path: str) -> bool:
         with self._lock:
-            return image_path in self._processed_images
+            resolved_path = str(Path(image_path).resolve())
+            return resolved_path in self._processed_images
 
     def add_new_images(self, count: int) -> None:
         with self._lock:

@@ -66,3 +66,98 @@ def retrieve_similar_images(query: Union[str, Image.Image], model, index: faiss.
     except Exception as e:
         print(f"Error in retrieve_similar_images: {str(e)}")
         return None, []
+
+def cleanup_faiss_index(index_path: Union[str, Path]) -> None:
+    """Clean up duplicate entries in the index"""
+    index_path = Path(index_path)
+    paths_file = Path(str(index_path) + '.paths')
+    
+    if not paths_file.exists():
+        return
+        
+    # Read all paths and their corresponding indices
+    paths_with_indices = []
+    unique_paths = set()
+    duplicate_indices = set()
+    
+    with paths_file.open('r') as f:
+        for idx, line in enumerate(f):
+            resolved_path = Path(line.strip()).resolve().as_posix()
+            if resolved_path in unique_paths:
+                duplicate_indices.add(idx)
+            else:
+                unique_paths.add(resolved_path)
+                paths_with_indices.append((idx, resolved_path))
+    
+    if not duplicate_indices:
+        return
+        
+    index = faiss.read_index(str(index_path))
+    
+    dimension = index.d
+    base_index = faiss.IndexFlatIP(dimension)
+    new_index = faiss.IndexIDMap(base_index)
+    
+    all_vectors = []
+    for i in range(index.ntotal):
+        if i not in duplicate_indices:
+            vector = index.reconstruct(i)
+            all_vectors.append(vector)
+    
+    vectors = np.array(all_vectors).astype(np.float32)
+    faiss.normalize_L2(vectors)
+    
+    # Add vectors to new index
+    ids = np.arange(len(all_vectors))
+    new_index.add_with_ids(vectors, ids)
+    
+    faiss.write_index(new_index, str(index_path))
+    
+    with paths_file.open('w') as f:
+        for _, path in paths_with_indices:
+            if path in unique_paths:
+                f.write(f"{path}\n")
+
+def add_to_faiss_index(index_path: Union[str, Path], new_embeddings: List[np.ndarray], 
+                       new_image_paths: List[str]) -> None:
+    """Add new embeddings to an existing FAISS index"""
+    index_path = Path(index_path)
+    
+    cleanup_faiss_index(index_path)
+    
+    index = faiss.read_index(str(index_path))
+    
+    paths_file = Path(str(index_path) + '.paths')
+    existing_paths = set()
+    if paths_file.exists():
+        with paths_file.open('r') as f:
+            for line in f:
+                existing_paths.add(Path(line.strip()).resolve().as_posix())
+    
+    filtered_embeddings = []
+    filtered_paths = []
+    for emb, path in zip(new_embeddings, new_image_paths):
+        resolved_path = Path(path).resolve().as_posix()
+        if resolved_path not in existing_paths:
+            filtered_embeddings.append(emb)
+            filtered_paths.append(resolved_path)
+            existing_paths.add(resolved_path)
+    
+    if not filtered_embeddings:
+        print("No new unique images to add to index")
+        return
+    
+    vectors = np.array(filtered_embeddings).astype(np.float32)
+    faiss.normalize_L2(vectors)
+    
+    start_id = index.ntotal
+    ids = np.arange(start_id, start_id + len(filtered_embeddings))
+    
+    index.add_with_ids(vectors, ids)
+    
+    faiss.write_index(index, str(index_path))
+    
+    mode = 'a' if paths_file.exists() else 'w'
+    with paths_file.open(mode) as f:
+        for img_path in filtered_paths:
+            f.write(f"{img_path}\n")

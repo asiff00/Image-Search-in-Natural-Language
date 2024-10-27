@@ -14,16 +14,45 @@ class ImageProcessor:
         self.model = model
         self.base_path.mkdir(parents=True, exist_ok=True)
         self._image_hashes: Set[str] = set()
+        self._processed_paths: Set[str] = set()
         self._load_existing_hashes()
 
     def _load_existing_hashes(self):
+        self._processed_paths.clear()
+        self._image_hashes.clear()
+        
+        index_paths_file = Path("Index/vector.index.paths")
+        if index_paths_file.exists():
+            print("\nLoading existing index paths...")
+            with open(index_paths_file, 'r') as f:
+                for line in f:
+                    path = Path(line.strip())
+                    if path.exists():
+                        self._processed_paths.add(str(path.resolve()))
+                        try:
+                            with open(path, 'rb') as img_file:
+                                file_hash = hashlib.md5(img_file.read()).hexdigest()
+                                self._image_hashes.add(file_hash)
+                        except Exception as e:
+                            print(f"Error loading hash for indexed path {path}: {e}")
+            print(f"Loaded {len(self._processed_paths)} paths from index")
+        else:
+            print("\nNo existing index paths file found")
+
+        print("\nScanning base path for images...")
         for img_path in self.get_all_images():
             try:
-                with open(img_path, 'rb') as f:
-                    file_hash = hashlib.md5(f.read()).hexdigest()
-                    self._image_hashes.add(file_hash)
+                resolved_path = str(img_path.resolve())
+                if resolved_path not in self._processed_paths:
+                    with open(img_path, 'rb') as f:
+                        file_hash = hashlib.md5(f.read()).hexdigest()
+                        if file_hash not in self._image_hashes:
+                            self._image_hashes.add(file_hash)
             except Exception as e:
                 print(f"Error loading hash for {img_path}: {e}")
+
+        print(f"Total unique image hashes: {len(self._image_hashes)}")
+        print(f"Total processed paths: {len(self._processed_paths)}\n")
 
     def _get_file_hash(self, file) -> str:
         content = file.file.read()
@@ -61,11 +90,17 @@ class ImageProcessor:
         return file_path
 
     def get_all_images(self) -> List[Path]:
-        return [
-            p for p in self.base_path.rglob('*')
+        all_files = list(self.base_path.rglob('*'))
+        print(f"Found {len(all_files)} total files in {self.base_path}")
+        
+        images = [
+            p for p in all_files
             if p.suffix.lower() in self.SUPPORTED_FORMATS
             and not p.name.startswith('.')
         ]
+        
+        print(f"Of which {len(images)} are supported images: {self.SUPPORTED_FORMATS}")
+        return images
 
     def process_image(self, image_path: Path):
         try:
@@ -90,3 +125,33 @@ class ImageProcessor:
         except Exception as e:
             print(f"Error converting path {absolute_path}: {e}")
             raise
+
+    def is_valid_image(self, path: Path) -> bool:
+        try:
+            with Image.open(path) as img:
+                img.verify()
+            return True
+        except Exception:
+            return False
+
+    def get_unprocessed_images(self) -> List[Path]:
+        all_images = self.get_all_images()
+        unprocessed = []
+        
+        print(f"\nChecking for unprocessed images:")
+        print(f"Total images found: {len(all_images)}")
+        print(f"Already processed paths: {len(self._processed_paths)}")
+        
+        for img in all_images:
+            resolved_path = str(img.resolve())
+            if resolved_path not in self._processed_paths:
+                if self.is_valid_image(img):
+                    unprocessed.append(img)
+                else:
+                    print(f"Skipping invalid image: {img}")
+        
+        print(f"Found {len(unprocessed)} unprocessed valid images\n")
+        return unprocessed
+
+    def mark_as_processed(self, image_path: Path) -> None:
+        self._processed_paths.add(str(image_path.resolve()))

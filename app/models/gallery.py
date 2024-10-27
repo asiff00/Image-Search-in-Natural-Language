@@ -3,7 +3,13 @@ import logging
 from sentence_transformers import SentenceTransformer
 from app.models.indexing import IndexingManager
 from app.utils.image_processor import ImageProcessor
-from app.utils.search import create_faiss_index, load_faiss_index, retrieve_similar_images
+from app.utils.search import (
+    create_faiss_index, 
+    load_faiss_index, 
+    retrieve_similar_images,
+    add_to_faiss_index,
+    cleanup_faiss_index
+)
 import threading
 import time
 import torch
@@ -15,7 +21,11 @@ class AIPhotoGallery:
         self.images_path = Path("images")
         self.index_path = Path("Index/vector.index")
         
+        self.index_path.parent.mkdir(parents=True, exist_ok=True)
+        self.images_path.mkdir(parents=True, exist_ok=True)
+        
         device = "cuda" if torch.cuda.is_available() else "cpu"
+        print(f"Using device: {device}")
         self.model = SentenceTransformer("clip-ViT-L-14", device=device)
         self.model = self.model.to(device)
         for param in self.model.parameters():
@@ -23,35 +33,54 @@ class AIPhotoGallery:
         
         self.indexing_manager = IndexingManager()
         self.image_processor = ImageProcessor(self.images_path, self.model)
-        
-        self.index_path.parent.mkdir(parents=True, exist_ok=True)
-        self.images_path.mkdir(parents=True, exist_ok=True)
         self._index_lock = threading.Lock()
         self._index_cache = None
         self._last_index_update = 0
         self._has_new_images = False
 
+        self._initialize_index()
+
+    def _initialize_index(self):
+        print("\n=== Initializing Gallery ===")
+        
+        unprocessed_images = self.image_processor.get_unprocessed_images()
+        print(f"Found {len(unprocessed_images)} unprocessed images")
+        
         if self.index_path.exists():
+            print("Found existing index, cleaning up...")
+            cleanup_faiss_index(self.index_path)
+            if not unprocessed_images:
+                print("No new images to process")
+                self.indexing_manager.update_status(
+                    is_initialized=True,
+                    status="done"
+                )
+                return
+        
+        if unprocessed_images:
+            print(f"Starting initial indexing for {len(unprocessed_images)} images...")
+            self.indexing_manager.add_new_images(len(unprocessed_images))
+            self.mark_new_images()
+            print("Running immediate indexing...")
+            self.background_indexing()
+        else:
+            print("No images to index. Waiting for uploads...")
             self.indexing_manager.update_status(
                 is_initialized=True,
                 status="done"
             )
+        
+        print("=== Initialization Complete ===\n")
 
     def background_indexing(self) -> None:
         try:
+            print("\n=== Starting Indexing Process ===")
             self.indexing_manager.update_status(
                 status="indexing",
                 is_indexing=True
             )
 
-            all_images = set(str(p.resolve()) for p in self.image_processor.get_all_images())
-            processed_images = set()
-            
-            if self.index_path.exists():
-                _, existing_paths = load_faiss_index(self.index_path)
-                processed_images = set(str(Path(p).resolve()) for p in existing_paths)
-            
-            new_images = all_images - processed_images
+            new_images = self.image_processor.get_unprocessed_images()
             
             if not new_images:
                 print("No new images to index")
@@ -61,43 +90,39 @@ class AIPhotoGallery:
                 )
                 return
 
-            print(f"Found {len(new_images)} new images to index")
+            print(f"Processing {len(new_images)} new images...")
             
             total_images = len(new_images)
             self.indexing_manager.update_status(
                 total_images=total_images,
-                indexing_type='incremental' if processed_images else 'full'
+                indexing_type='incremental' if self.index_path.exists() else 'full'
             )
 
-            all_embeddings = []
-            all_paths = []
+            new_embeddings = []
+            new_paths = []
             
-            if processed_images:
-                for img_path in processed_images:
-                    try:
-                        embedding = self.image_processor.process_image(img_path)
-                        all_embeddings.append(embedding)
-                        all_paths.append(str(Path(img_path).resolve()))
-                    except Exception as e:
-                        logger.error(f"Error processing existing image {img_path}: {e}")
-                        print(f"Error processing existing image {img_path}: {e}")
-
-            for i, img_path in enumerate(new_images):
+            for i, img_path in enumerate(new_images, 1):
                 try:
-                    print(f"Processing new image {i+1}/{total_images}: {img_path}")
+                    print(f"Processing image {i}/{total_images}: {img_path}")
                     embedding = self.image_processor.process_image(img_path)
-                    all_embeddings.append(embedding)
-                    all_paths.append(str(Path(img_path).resolve()))
+                    new_embeddings.append(embedding)
+                    new_paths.append(str(img_path.resolve()))
+                    self.image_processor.mark_as_processed(img_path)
                     
-                    self.indexing_manager.update_status(processed_images=i + 1)
+                    self.indexing_manager.update_status(processed_images=i)
 
                 except Exception as e:
                     logger.error(f"Error processing {img_path}: {e}")
                     print(f"Error processing {img_path}: {e}")
 
-            if all_embeddings:
+            if new_embeddings:
                 with self._index_lock:
-                    create_faiss_index(all_embeddings, all_paths, str(self.index_path))
+                    if not self.index_path.exists():
+                        print("Creating new index...")
+                        create_faiss_index(new_embeddings, new_paths, str(self.index_path))
+                    else:
+                        print("Adding to existing index...")
+                        add_to_faiss_index(self.index_path, new_embeddings, new_paths)
 
             self._last_index_update = time.time()
             self._index_cache = None
@@ -106,6 +131,7 @@ class AIPhotoGallery:
                 is_initialized=True,
                 new_images_count=0
             )
+            print("=== Indexing Complete ===\n")
 
         except Exception as e:
             logger.error(f"Indexing error: {e}")
@@ -117,9 +143,14 @@ class AIPhotoGallery:
         finally:
             self.indexing_manager.update_status(is_indexing=False)
 
-    def start_indexing(self) -> None:
+    def start_indexing(self, force_immediate: bool = False) -> None:
         if self.indexing_manager.needs_indexing():
-            self.indexing_manager.executor.submit(self.background_indexing)
+            if force_immediate:
+                print("Running immediate indexing...")
+                self.background_indexing()
+            else:
+                print("Submitting indexing to executor...")
+                self.indexing_manager.executor.submit(self.background_indexing)
             self._has_new_images = False
 
     def load_faiss_index(self):

@@ -79,6 +79,9 @@ async def upload(files: List[UploadFile] = File(...)):
 async def search(query: SearchQuery):
     try:
         print("Starting search...")
+        if not gallery.index_path.exists():
+            return {'html': '<div class="error">No index found. Please upload some images first.</div>'}
+            
         _, retrieved_images = gallery.retrieve_similar_images(query.query, top_k=12)
         
         print(f"Retrieved images count: {len(retrieved_images) if retrieved_images else 0}")

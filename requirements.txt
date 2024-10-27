@@ -9,9 +9,7 @@ faiss-cpu
 Pillow
 jinja2
 aiofiles
-flask
-flask-wtf
-flask-limiter
+
 
 
 
