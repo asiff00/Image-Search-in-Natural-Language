@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Photo Gallery</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/@mdi/font@7.2.96/css/materialdesignicons.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="app-container">
+        <div class="sidebar">
+            <div class="app-title">
+                <span class="mdi mdi-image-search"></span>
+                <h1>AI Photo Gallery</h1>
+            </div>
+            
+            <div class="search-container">
+                <span class="mdi mdi-magnify search-icon"></span>
+                <input type="text" 
+                       class="search-box" 
+                       placeholder="Search your photos..."
+                       aria-label="Search photos">
+            </div>
+            
+            <div class="upload-zone" id="upload-zone">
+                <span class="mdi mdi-cloud-upload upload-icon"></span>
+                <p class="upload-text">Drop images here or click to upload</p>
+                <p class="upload-subtitle">Supports JPG, PNG, GIF</p>
+            </div>
+            
+            <div class="indexing-status" id="indexing-status">
+                <div class="indexing-header">
+                    <div class="indexing-icon">
+                        <span class="mdi mdi-database-sync"></span>
+                    </div>
+                    <div>
+                        <h3>Gallery Index</h3>
+                        <p id="indexing-message" class="text-secondary">Preparing...</p>
+                    </div>
+                </div>
+                <div class="progress-bar">
+                    <div id="progress-fill" class="progress-fill"></div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="main-content">
+            <div class="gallery-grid" id="gallery"></div>
+        </div>
+    </div>
+
+    <div id="toast" class="toast">
+        <span class="mdi"></span>
+        <p></p>
+    </div>
+    <script src="/static/js/main.js" defer></script>
+</body>
+</html>
