@@ -1,8 +1,12 @@
+"""
+FastAPI routes for the Image Search application.
+
+Handles endpoints for image upload, search, and gallery management.
+"""
 from fastapi import File, UploadFile, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 from typing import List
-import os
 from pathlib import Path
 from . import app, templates
 from .models.gallery import AIPhotoGallery
@@ -10,14 +14,32 @@ from .models.gallery import AIPhotoGallery
 gallery = AIPhotoGallery()
 
 class SearchQuery(BaseModel):
+    """Data model for search queries.
+
+    Args:
+        query (str): The search query string.
+    """
     query: str
 
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
+    """Render the main page of the application.
+
+    Args:
+        request (Request): The incoming request object.
+    """
     return templates.TemplateResponse("index.html", {"request": request})
 
 @app.post("/init")
 async def init_gallery():
+    """Initialize the image gallery and start indexing if needed.
+
+    Returns:
+        dict: A dictionary containing the status of the initialization.
+    
+    Raises:
+        HTTPException: If an error occurs during initialization.
+    """
     try:
         status = gallery.indexing_manager.get_status()
         
@@ -31,10 +53,28 @@ async def init_gallery():
 
 @app.get("/indexing-status")
 async def get_indexing_status():
+    """Get the current status of the image indexing process.
+
+    Returns:
+        dict: A dictionary containing the indexing status.
+    """
     return gallery.indexing_manager.get_status()
 
 @app.post("/upload")
 async def upload(files: List[UploadFile] = File(...)):
+    """
+    Handle image file uploads.
+    Checks for duplicates and starts indexing process for new images.
+
+    Args:
+        files (List[UploadFile]): A list of uploaded files.
+
+    Returns:
+        dict: A dictionary containing the upload message, uploaded files, skipped files, and indexing status.
+
+    Raises:
+        HTTPException: If no valid files are uploaded or if an error occurs during the upload process.
+    """
     uploaded_files = []
     skipped_files = []
     
@@ -77,6 +117,19 @@ async def upload(files: List[UploadFile] = File(...)):
 
 @app.post("/search")
 async def search(query: SearchQuery):
+    """
+    Search for images using natural language queries.
+    Returns HTML markup for displaying matching images in the gallery.
+
+    Args:
+        query (SearchQuery): The search query object.
+
+    Returns:
+        dict: A dictionary containing the HTML markup for the gallery.
+
+    Raises:
+        HTTPException: If an error occurs during the search process.
+    """
     try:
         print("Starting search...")
         if not gallery.index_path.exists():

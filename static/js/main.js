@@ -1,3 +1,7 @@
+/**
+ * Initializes the gallery when the DOM is fully loaded.
+ * Fetches the initialization status from the server and either starts the indexing status update or loads the gallery.
+ */
 document.addEventListener('DOMContentLoaded', function() {
     fetch('/init', {
         method: 'POST'
@@ -14,6 +18,12 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 
+/**
+ * Displays a toast notification message.
+ * @param {string} message - The message to display in the toast.
+ * @param {string} [type='success'] - The type of toast ('success', 'warning', 'error').
+ * @param {string} [details=null] - Additional details to display in the toast.
+ */
 function showToast(message, type = 'success', details = null) {
     const toast = document.getElementById('toast');
     toast.className = `toast toast-${type} show`;
@@ -33,6 +43,11 @@ function showToast(message, type = 'success', details = null) {
     }, 5000);
 }
 
+/**
+ * Updates the indexing status display.
+ * Fetches the current indexing status from the server and updates the progress bar and gallery item states.
+ * Calls itself recursively to keep the status updated until indexing is complete.
+ */
 function updateIndexingStatus() {
     fetch('/indexing-status')
         .then(response => response.json())
@@ -74,6 +89,10 @@ function updateIndexingStatus() {
         });
 }
 
+/**
+ * Handles the file upload process.
+ * @param {FileList} files - The list of files to upload.
+ */
 function handleFileUpload(files) {
     const formData = new FormData();
     const gallery = document.getElementById('gallery');
@@ -133,6 +152,10 @@ function handleFileUpload(files) {
     });
 }
 
+/**
+ * Monitors the indexing status after a file upload.
+ * Periodically checks the indexing status and refreshes the gallery when indexing is complete.
+ */
 function monitorNewImages() {
     let checkInterval = setInterval(() => {
         fetch('/indexing-status')
@@ -150,6 +173,9 @@ function monitorNewImages() {
     }, 1000);
 }
 
+/**
+ * Refreshes the gallery by fading out current items and then performing a new search.
+ */
 function refreshGallery() {
     const gallery = document.getElementById('gallery');
     const currentItems = gallery.querySelectorAll('.gallery-item:not(.uploading)');
@@ -164,6 +190,10 @@ function refreshGallery() {
     }, 300);
 }
 
+/**
+ * Searches for images based on a query.
+ * @param {string} query - The search query.
+ */
 function searchImages(query) {
     const gallery = document.getElementById('gallery');
     console.log('Starting search with query:', query);

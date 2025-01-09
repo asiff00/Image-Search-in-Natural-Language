@@ -1,3 +1,7 @@
+"""
+Core module for managing the AI-powered photo gallery.
+Handles image processing, indexing, and similarity search functionality.
+"""
 from pathlib import Path
 import logging
 from sentence_transformers import SentenceTransformer
@@ -13,11 +17,20 @@ from app.utils.search import (
 import threading
 import time
 import torch
+from typing import Tuple, List
 
 logger = logging.getLogger(__name__)
 
 class AIPhotoGallery:
+    """
+    Main class for managing the AI-powered photo gallery.
+    Handles image storage, processing, indexing, and similarity search using CLIP embeddings.
+    """
+    
     def __init__(self):
+        """
+        Initialize the gallery with necessary paths, models, and managers.
+        """
         self.images_path = Path("images")
         self.index_path = Path("Index/vector.index")
         
@@ -41,6 +54,10 @@ class AIPhotoGallery:
         self._initialize_index()
 
     def _initialize_index(self):
+        """
+        Initialize or reload the FAISS index for image similarity search.
+        Processes any unprocessed images found in the gallery.
+        """
         print("\n=== Initializing Gallery ===")
         
         unprocessed_images = self.image_processor.get_unprocessed_images()
@@ -73,6 +90,10 @@ class AIPhotoGallery:
         print("=== Initialization Complete ===\n")
 
     def background_indexing(self) -> None:
+        """
+        Process and index new images in the background.
+        Creates or updates the FAISS index with embeddings from new images.
+        """
         try:
             print("\n=== Starting Indexing Process ===")
             self.indexing_manager.update_status(
@@ -144,6 +165,12 @@ class AIPhotoGallery:
             self.indexing_manager.update_status(is_indexing=False)
 
     def start_indexing(self, force_immediate: bool = False) -> None:
+        """
+        Start the indexing process either immediately or in the background.
+        
+        Args:
+            force_immediate (bool): If True, run indexing immediately instead of in background
+        """
         if self.indexing_manager.needs_indexing():
             if force_immediate:
                 print("Running immediate indexing...")
@@ -153,7 +180,13 @@ class AIPhotoGallery:
                 self.indexing_manager.executor.submit(self.background_indexing)
             self._has_new_images = False
 
-    def load_faiss_index(self):
+    def load_faiss_index(self) -> Tuple[faiss.Index, List[str]]:
+        """
+        Load the FAISS index from disk, using caching to improve performance.
+
+        Returns:
+            Tuple[faiss.Index, List[str]]: The loaded FAISS index and a list of associated image paths.
+        """
         with self._index_lock:
             try:
                 if self._index_cache is None or time.time() - self._last_index_update > 300:
@@ -167,7 +200,17 @@ class AIPhotoGallery:
                     self.start_indexing()
                 return None, []
 
-    def retrieve_similar_images(self, query, top_k=12):
+    def retrieve_similar_images(self, query: str, top_k: int = 12) -> Tuple[str, List[str]]:
+        """
+        Find images similar to the given text query.
+        
+        Args:
+            query (str): Natural language query to search for
+            top_k (int): Number of similar images to return
+            
+        Returns:
+            Tuple[str, List[str]]: A tuple containing the query and a list of similar image paths.
+        """
         try:
             index_data = self.load_faiss_index()
             if index_data is None or index_data[1] == []:
@@ -179,8 +222,14 @@ class AIPhotoGallery:
             print(f"Error retrieving similar images: {e}")
             return query, []
 
-    def has_new_images(self):
+    def has_new_images(self) -> bool:
+        """Check if there are new unprocessed images in the gallery.
+
+        Returns:
+            bool: True if there are new unprocessed images, False otherwise.
+        """
         return self._has_new_images
 
-    def mark_new_images(self):
+    def mark_new_images(self) -> None:
+        """Mark that new images have been added to the gallery."""
         self._has_new_images = True

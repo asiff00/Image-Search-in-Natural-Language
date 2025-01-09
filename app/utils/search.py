@@ -1,3 +1,7 @@
+"""
+Utility functions for managing FAISS-based similarity search index.
+Provides functionality for creating, loading, and searching image embeddings.
+"""
 import os
 import numpy as np
 import faiss
@@ -6,6 +10,14 @@ from typing import Tuple, List, Union
 from pathlib import Path
 
 def create_faiss_index(embeddings: List[np.ndarray], image_paths: List[str], index_path: Union[str, Path]) -> None:
+    """
+    Create a new FAISS index from image embeddings.
+    
+    Args:
+        embeddings (List[np.ndarray]): List of image embeddings
+        image_paths (List[str]): List of corresponding image paths
+        index_path (Union[str, Path]): Path to save the FAISS index
+    """
     index_path = Path(index_path)
     dimension = len(embeddings[0])
     
@@ -26,6 +38,15 @@ def create_faiss_index(embeddings: List[np.ndarray], image_paths: List[str], ind
             f.write(f"{Path(img_path).resolve().as_posix()}\n")
 
 def load_faiss_index(index_path: Union[str, Path]) -> Tuple[faiss.Index, List[str]]:
+    """
+    Load a FAISS index and its associated image paths from disk.
+    
+    Args:
+        index_path (Union[str, Path]): Path to the FAISS index file
+        
+    Returns:
+        Tuple[faiss.Index, List[str]]: Loaded index and list of image paths
+    """
     index_path = Path(index_path)
     
     try:
@@ -45,6 +66,19 @@ def load_faiss_index(index_path: Union[str, Path]) -> Tuple[faiss.Index, List[st
 
 def retrieve_similar_images(query: Union[str, Image.Image], model, index: faiss.Index, 
                           image_paths: List[str], top_k: int = 3) -> Tuple[Union[str, Image.Image], List[str]]:
+    """
+    Find images similar to a query using the FAISS index.
+    
+    Args:
+        query (Union[str, Image.Image]): Query image or text
+        model: Model for generating embeddings
+        index (faiss.Index): FAISS index for similarity search
+        image_paths (List[str]): List of indexed image paths
+        top_k (int): Number of similar images to retrieve
+        
+    Returns:
+        Tuple[Union[str, Image.Image], List[str]]: Query and list of similar image paths
+    """
     try:
         if isinstance(query, str):
             if query.endswith(('.png', '.jpg', '.jpeg', '.tiff', '.bmp', '.gif')):
@@ -68,7 +102,12 @@ def retrieve_similar_images(query: Union[str, Image.Image], model, index: faiss.
         return None, []
 
 def cleanup_faiss_index(index_path: Union[str, Path]) -> None:
-    """Clean up duplicate entries in the index"""
+    """
+    Clean up duplicate entries in the FAISS index.
+    
+    Args:
+        index_path (Union[str, Path]): Path to the FAISS index file
+    """
     index_path = Path(index_path)
     paths_file = Path(str(index_path) + '.paths')
     
@@ -120,7 +159,14 @@ def cleanup_faiss_index(index_path: Union[str, Path]) -> None:
 
 def add_to_faiss_index(index_path: Union[str, Path], new_embeddings: List[np.ndarray], 
                        new_image_paths: List[str]) -> None:
-    """Add new embeddings to an existing FAISS index"""
+    """
+    Add new embeddings to an existing FAISS index.
+    
+    Args:
+        index_path (Union[str, Path]): Path to the FAISS index file
+        new_embeddings (List[np.ndarray]): List of new image embeddings to add
+        new_image_paths (List[str]): List of corresponding image paths
+    """
     index_path = Path(index_path)
     
     cleanup_faiss_index(index_path)
