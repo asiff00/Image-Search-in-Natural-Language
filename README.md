@@ -1,6 +1,20 @@
 # Image Search in Natural Language
 
+[![GitHub stars](https://img.shields.io/github/stars/asiff00/Image-Search-in-Natural-Language?style=social)](https://github.com/asiff00/Image-Search-in-Natural-Language)
+[![GitHub last commit](https://img.shields.io/github/last-commit/asiff00/Image-Search-in-Natural-Language)](https://github.com/asiff00/Image-Search-in-Natural-Language/commits/main)
+[![License](https://img.shields.io/github/license/asiff00/Image-Search-in-Natural-Language)](https://github.com/asiff00/Image-Search-in-Natural-Language/blob/main/LICENSE)
+[![LinkedIn](https://img.shields.io/badge/-LinkedIn-blue?style=flat&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/abdullahalasif-bd)
+[![Python](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![CLIP](https://img.shields.io/badge/CLIP-ViT--L--14-orange.svg)](https://github.com/openai/CLIP)
+
 A web application that enables natural language-based image search using modern AI models. The system processes and indexes uploaded images, allowing users to search through them using natural language queries.
+
+## Demo
+
+Watch the demo video to see the application in action:
+
+<iframe width="996" height="560" src="https://www.youtube.com/embed/NScTko_54uA" title="AI Image Search Tool | Computer Vision | ML" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+
 
 ## System Architecture
 
