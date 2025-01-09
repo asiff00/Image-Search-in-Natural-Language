@@ -12,7 +12,7 @@ This is a web application that lets you search for images using natural language
 
 Watch the demo video to see the application in action:
 
-<video controls src="docs/assets/demo.mp4" title="AI Image Search Tool"></video>
+[![Image Search Demo](https://img.youtube.com/vi/NScTko_54uA/0.jpg)](https://youtu.be/NScTko_54uA)
 
 
 ## System Architecture
